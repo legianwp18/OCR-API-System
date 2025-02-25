@@ -1,0 +1,10 @@
+services:
+  ocr-api:
+    build: .
+    container_name: ocr-api
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./results:/app/results
+    restart: unless-stopped
