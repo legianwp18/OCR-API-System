@@ -6,6 +6,7 @@ from PIL import Image
 import os
 import pytesseract
 import logging
+import base64
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -50,7 +51,16 @@ def ocr_process():
 
         process_pdf(file_path, result_pdf_path)
 
-        return send_file(result_pdf_path, as_attachment=True, download_name='ocr_result.pdf')
+        with open(result_pdf_path, 'rb') as pdf_file:
+            pdf_data = pdf_file.read()
+            pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+
+        return jsonify({
+            'success': True,
+            'filename': f"{filename}_result.pdf",
+            'data': pdf_base64,
+            'content_type': 'application/pdf'
+        })
 
     except Exception as e:
         logger.error(f"Error: {str(e)}")
