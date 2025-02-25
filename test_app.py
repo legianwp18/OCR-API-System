@@ -3,7 +3,6 @@ import requests
 # Ganti dengan path file yang ada di sistem Anda
 file_path = "/Users/sociolla/Documents/wiki/test_document.pdf"
 
-# Headers tambahan yang mungkin diperlukan
 headers = {
     'User-Agent': 'PythonClient/1.0'
 }
