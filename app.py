@@ -3,11 +3,13 @@ import time
 import uuid
 import fitz
 from PIL import Image
-import io
 import os
 import pytesseract
-from fpdf import FPDF
 import logging
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import io
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,54 +57,69 @@ def ocr_process():
         return jsonify({'error': f'Terjadi kesalahan: {str(e)}'}), 500
 
 
+def create_pdf_with_reportlab(text_pages, output_path):
+    c = canvas.Canvas(output_path, pagesize=letter)
+
+    for page_text in text_pages:
+        y = 750
+        lines = page_text.split('\n')
+
+        for line in lines:
+            if line.strip():
+                try:
+                    c.drawString(50, y, line)
+                except:
+                    safe_line = ''.join(ch if ord(ch) < 128 else ' ' for ch in line)
+                    c.drawString(50, y, safe_line)
+
+                y -= 15
+
+                if y < 50:
+                    c.showPage()
+                    y = 750
+
+        c.showPage()
+
+    c.save()
+
 def process_pdf(pdf_path, output_path):
     logger.info(f"Memproses PDF: {pdf_path}")
 
     pdf_document = fitz.open(pdf_path)
 
-    output_pdf = FPDF()
+    all_text = []
 
     for page_num in range(len(pdf_document)):
         page = pdf_document.load_page(page_num)
+
         text_from_pdf = page.get_text()
+
         text_length = len(text_from_pdf.strip())
 
+        # Jika halaman memiliki cukup teks (bukan gambar), gunakan teks tersebut
         if text_length > 50:  # Ambang batas karakter yang dapat disesuaikan
             logger.info(f"Halaman {page_num + 1} sudah berisi teks ({text_length} karakter), tidak perlu OCR")
             processed_text = text_from_pdf
         else:
+            # Halaman berisi sedikit atau tanpa teks, lakukan OCR
             logger.info(f"Halaman {page_num + 1} mungkin berisi gambar (hanya {text_length} karakter), melakukan OCR")
 
+            # Konversi halaman ke gambar
             pix = page.get_pixmap(matrix=fitz.Matrix(300 / 72, 300 / 72))
             img_bytes = pix.tobytes("png")
             img = Image.open(io.BytesIO(img_bytes))
 
+            # Lakukan OCR
             processed_text = pytesseract.image_to_string(img, lang='eng+ind')
             logger.info(f"OCR selesai untuk halaman {page_num + 1}")
 
-        processed_text = clean_text(processed_text)
-
-        add_text_to_pdf(output_pdf, processed_text)
+        # Simpan teks dari halaman ini
+        all_text.append(processed_text)
 
     pdf_document.close()
 
-    output_pdf.output(output_path)
+    create_pdf_with_reportlab(all_text, output_path)
     logger.info(f"PDF hasil OCR disimpan di {output_path}")
-
-
-def clean_text(text):
-    """Bersihkan teks dari karakter yang tidak didukung oleh FPDF"""
-    # Ganti karakter Unicode dengan alternatif ASCII sederhana
-    text = text.replace('\u2019', "'")  # Apostrof kurva
-    text = text.replace('\u201c', '"')  # Tanda kutip kurva kiri
-    text = text.replace('\u201d', '"')  # Tanda kutip kurva kanan
-    text = text.replace('\u2013', '-')  # En dash
-    text = text.replace('\u2014', '--')  # Em dash
-    text = text.replace('\u2022', '*')  # Bullet
-    text = text.replace('\u2026', '...')  # Ellipsis
-    text = text.replace('\u00a0', ' ')  # Non-breaking space
-    return text
-
 
 def add_text_to_pdf(pdf, text):
     pdf.add_page()

@@ -1,7 +1,7 @@
 import requests
 
 # Ganti dengan path file yang ada di sistem Anda
-file_path = "/Users/sociolla/Documents/wiki/text_document.pdf"
+file_path = "/Users/sociolla/Documents/wiki/test_document.pdf"
 
 # Headers tambahan yang mungkin diperlukan
 headers = {
